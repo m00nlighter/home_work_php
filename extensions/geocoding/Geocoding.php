@@ -2,20 +2,44 @@
 
 class Geocoding
 {
-	private $apiUrl = "https://maps.googleapis.com/maps/api/geocode/";
-
 	const RESULT_JSON = 'json';
 	const RESULT_XML  = 'xml';
-	private $key = null;
-	private $filters = [];
-	private $output = self::RESULT_JSON;
-	private $result = null;
-	private $search = null;
+
+	const REQUEST_GEOCODE = 'address';
+	const REQUEST_REVERSE = 'latlng';
+	const REQUEST_PLACE   = 'place_id';
+	//////////////////////////////////////////////////////////////////
+	private $apiUrl         = "https://maps.googleapis.com/maps/api/geocode/";
+	private $apiKey         = false;
+	private $components     = [];
+	private $result_types   = [];
+	private $location_types = [];
+	private $output         = self::RESULT_JSON;
+	private $results        = false;
+	private $lang           = "language=ru";
+	private $region         = false;
+	private $bounds         = false;
+
 	///////////////////////////
 	//////////Set api key//////
-	public function key($param)
+	public function apiKey( $param )
 	{
-		$this->key = "&key=".$param;
+		$this->apiKey = "key=".$param;
+	}
+	//////////Set Lang//////
+	public function lang( $param )
+	{
+		$this->lang = "language=".$param;
+	}
+	public function bounds( $array )
+	{
+		/////////rewrite validate///////
+		$this->bounds = "bounds=".$param;
+	}
+	public function region( $param )
+	{
+		/////////rewrite validate///////
+		$this->region = "region=".$param;
 	}
 	///////////////////////////
 	///////Set api to Json/////
@@ -29,108 +53,211 @@ class Geocoding
 	{
 		$this->output = self::RESULT_XML;
 	}
-	/////////////////////////////////////
-	////////Set country filter///////////
+	////////////////////////////////////////
+	/*
+			Components
+										  */
+	////////////////////////////////////////
+	////////////////////////////////////////
+	/*	
+			Set country component
+										  */
+	////////////////////////////////////////
 	public function country( $param )
 	{
-		$filter = implode( ":" , ['country' , $param] );
-		array_push( $this->filters, $filter );
+		$component = implode( ":" , ['country' , $param] );
+		array_push( $this->components, $component );
 	}
-	/////////////////////////////////////
-	////////Set postal_code filter///////////
+	//////////////////////////////////////
+	/*
+			Set postal_code component
+										*/
+	//////////////////////////////////////
 	public function postal_code( $param )
 	{
-		$filter = implode( ":" , ['postal_code' , $param] );
-		array_push( $this->filters, $filter );
+		$component = implode( ":" , ['postal_code' , $param] );
+		array_push( $this->components, $component );
 	}
-	/////////////////////////////////////////////////
-	////////Set administrative_area filter///////////
+	////////////////////////////////////////////
+	/*
+			Set administrative_area component
+											  */
+	////////////////////////////////////////////
 	public function administrative_area( $param )
 	{
-		$filter = implode( ":" , ['administrative_area' , $param] );
-		array_push( $this->filters, $filter );
+		$component = implode( ":" , ['administrative_area' , $param] );
+		array_push( $this->components, $component );
 	}
-	/////////////////////////////////////
-	////////Set locality filter///////////
+	////////////////////////////////////
+	/*
+			Set locality component
+									  */
+	////////////////////////////////////
 	public function locality( $param )
 	{
-		$filter = implode( ":" , ['locality' , $param] );
-		array_push( $this->filters, $filter );
+		$component = implode( ":" , ['locality' , $param] );
+		array_push( $this->components, $component );
 	}
-	/////////////////////////////////////
-	////////Set route filter///////////
+	////////////////////////////////////
+	/*
+			Set route component
+									  */
+	////////////////////////////////////
 	public function route( $param )
 	{
-		$filter = implode( ":" , ['route' , $param] );
-		array_push( $this->filters, $filter );
+		$component = implode( ":" , ['route' , $param] );
+		array_push( $this->components, $component );
 	}
-
-	public function get( $address, $key = null )
+	///////////////////////////////////
+	/*
+			End Components
+									 */
+	///////////////////////////////////
+	public function result_type( $param )
 	{
-		$this->search = $key;
-		$response = $this->getResponse( $address );
-		$response = ArrayHelper::first($response);
-		return ArrayHelper::getElementByKey( $response , $key);
-	}
-	public function next(){
-		$key = $this->search;
-		$result = $this->result;
-		$response = next($result);
-		if($response){
-			return ArrayHelper::getElementByKey( $response , $key); 
+		if(is_string( $param ))
+		{
+			$param = explode( "," , $param );
 		}
-		return false;
+		$this->result_types = array_merge( $this->result_types , $param );
 	}
-	public function prev(){
-		$key = $this->search;
-		$result = $this->result;
-		$response = prev($result);
-		if($response){
-			return ArrayHelper::getElementByKey( $response , $key); 
-		}
-		return false;
-	}
-	public function first(){
-		$key = $this->search;
-		$result = $this->result;
-		$response = ArrayHelper::first($result);
-		if($response){
-			return ArrayHelper::getElementByKey( $response , $key); 
-		}
-		return false;
-	}
-	public function last(){
-		$key = $this->search;
-		$result = $this->result;
-		$response = ArrayHelper::last($result);
-		if($response){
-			return ArrayHelper::getElementByKey( $response , $key); 
-		}
-		return false;
-	}
-	////////////////////////////////
-	/////return results count //////
-	private function results()
+	public function location_type( $param )
 	{
-		return count($this->result);
+		if(is_string( $param ))
+		{
+			$param = explode( "," , $param );
+		}
+		$this->location_types = array_merge( $this->location_types , $param );
 	}
-	/////////////////////////////////
-	////generate url for loading/////
-	private function generateUrl( $address )
+	public function geocode( $address )
 	{
 		$address = urlencode( $address );
-		$url = $this->apiUrl.$this->output."?address=".$address;
-		if( count($this->filters) > 0){
-			$filters = $this->generateFilters();
-			$url.="&components=".$filters;
-		}
-		return $url; 
+		$this->request = self::REQUEST_GEOCODE;
+		$url = $this->generateUrl( $address );
+		$this->results = $this->getResponse( $url ); 
 	}
-	///////////////////////////////////////////////////////
+	public function reverse( $param )
+	{
+			$this->checkPermission();
+			$this->request = self::REQUEST_REVERSE;
+			$latlng = $this->latlng( $param );
+			$url = $this->generateUrl( $latlng );
+			$this->results = $this->getResponse( $url );
+	}
+	public function place( $place_id )
+	{
+			$this->checkPermission();
+			$this->request = self::REQUEST_PLACE;
+			$url = $this->generateUrl( $place_id );
+			$this->results = $this->getResponse( $url );
+	}
+	/////////////////////////////////////////////////////////
+	public function get( $key = null )
+	{
+		$result = current( $this->results );
+		return ArrayHelper::getElementByKey( $result , $key ); 
+	}
+	public function next()
+	{
+		if( next( $this->results ) )
+		{
+			return true;
+		}
+		return false;
+	}
+	public function prev()
+	{
+		if( prev( $this->results ) )
+		{
+			return true;
+		}
+		return false;
+	}
+	public function first()
+	{
+		if( ArrayHelper::first( $this->results ) )
+		{
+			return true;
+		}
+		return false;
+	}
+	public function last()
+	{
+		if( ArrayHelper::last( $this->results ) )
+		{
+			return true;
+		}
+		return false;
+	}
+	////generate url for loading/////
+	private function generateUrl( $q )
+	{
+		switch($this->request){
+			case self::REQUEST_GEOCODE:
+				$params = [
+					$this->generateComponents(),
+					$this->bounds,
+					$this->region,
+					$this->lang
+				];
+				$url = implode( "?", [ $this->apiUrl.$this->output , self::REQUEST_GEOCODE."=".$q ] );
+				foreach($params as $key)
+				{
+					if($key)
+						$url = implode( "&" , [ $url , $key ]);
+				}
+				var_dump($url);
+				return $url;
+
+			break;
+			case self::REQUEST_REVERSE:
+				$params = [
+					$this->generateResultTypes(),
+					$this->generateLocationTypes(),
+					$this->lang
+				];
+				$url = implode( "?", [ $this->apiUrl.$this->output , self::REQUEST_REVERSE."=".$q ] );
+				foreach($params as $key)
+				{
+					if($key)
+						$url = implode( "&" , [ $url , $key ]);
+				}
+				var_dump($url);
+				return $url;
+
+			break;
+			case self::REQUEST_PLACE:
+					$params = [
+						$this->lang
+				];
+				$url = implode( "?", [ $this->apiUrl.$this->output , self::REQUEST_PLACE."=".$q ] );
+				foreach($params as $key)
+				{
+					if($key)
+						$url = implode( "&" , [ $url , $key ]);
+				}
+				return $url;
+			break;
+		}
+	}
 	/////generate components filters for google api////////
-	private function generateFilters(){
-		$filters = $this->filters;
-		return implode( "|" , $filters );
+	private function generateComponents()
+	{
+		if(count($this->components) > 0)
+			return "components=".implode( "|" , $this->components );
+		return false;
+	}
+	private function generateResultTypes()
+	{
+		if(count($this->result_types) > 0)
+			return "result_type=".implode( "|" , $this->result_types );
+		return false;
+	}
+	private function generateLocationTypes()
+	{
+		if(count($this->location_types) > 0)
+			return "location_type=".implode( "|" , $this->location_types );
+		return false;
 	}
 	///////////////////////////////////////////////////////
 	/////////////////////parse result//////////////////////
@@ -139,7 +266,7 @@ class Geocoding
 		if($this -> output === self::RESULT_JSON){
 			return json_decode( $data, true );
 		}
-		if($this -> output === self::RESULT_XML){
+		elseif($this -> output === self::RESULT_XML){
 			$xml = simplexml_load_string( $data );
 			$json = json_encode( $xml );
 			$data = json_decode( $json , true );
@@ -148,36 +275,64 @@ class Geocoding
 	}
 	////////////////////////////////////////////////////////
 	//////////////////////Load api results//////////////////
-	private function getResponse( $address ){
+	private function getResponse( $url )
+	{
 		$cache = new FileCache();
-		$url = $this->generateUrl( $address );
 		$result = $cache->get( $url );
 		if(!$result)
 		{
 			$getpage = new GetPage;
-			$request = $getpage->get( $url, $post = false, $this->key );
+			$request = $getpage->get( $url, $post = false, $this->apiKey );
 			if(!$request['error'])
 			{
 				$result = $this->parse( $request['data'] );
 				if( $result['status'] == "OK" )
 				{
 					$cache->set( $url , $result["results"] );
-					$this->result = $result["results"];
 					return $result["results"];	
 				}
 				else
 				{
 					throw new Exception("Geocoding error : ".$result['status']."\r\n".$url ); 
 				}
+			}
+			else
+			{
+				throw new Exception(" Geocoding error : ".$request['error']."\r\n" );
 			}	
 				
 		}
 		else
 		{
-			$this->result = $result;
 			return $result;
 		}
-	}    
+	}
+	//////////////////////////////////////////////////////
+	private function latlng( $param )
+	{
+		if(is_array( $param )){
+			$param = implode( "," , [ArrayHelper::first($param) , ArrayHelper::last($param)] );
+		}
+		return $param;
+	}
+	private function latlngBounds( $northeast , $southwest )
+	{
+		return implode ( "|" , [ $northeast , $southwest ] );
+	}
+	private function checkPermission()
+	{
+		if( (count( $this->location_types ) > 0 || count( $this->result_types ) > 0) && $this->apiKey == false  )
+		{
+			throw new Exception(" You cant use location_types and result_types without api key" );
+		}
+		else 
+		{
+			return true;
+		}
+	}
+	//////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////
+	//////////////////////////////////////////////////////    
 }
 
 ?>

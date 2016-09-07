@@ -16,12 +16,17 @@ require_once('extensions/getpage/GetPage.php');
 require_once('extensions/geocoding/Geocoding.php');
 
 $geocoding = new Geocoding();
-$geocoding -> json();//json
-$geocoding->key('AIzaSyByx6q61twWq8bjZyR78AndRVurzFpiqQQ');//not requered
-//$geocoding->country("germany");//filters functions route, locality, administrative_area , postal_code , country
-$geocoding->administrative_area("Berlin");
-//$geometry['location'] = $geocoding->get("berlin",'geometry.location');
-//var_dump($geometry);
-var_dump($geocoding->get("berlin",'formatted_address'));
-echo "<br/>";
-var_dump($geocoding->next()); //first, next, prev, last, result /// function can be called only after get function
+$geocoding -> json();//json type of request
+//$geocoding -> xml();//xml type of request
+$geocoding->apiKey('AIzaSyByx6q61twWq8bjZyR78AndRVurzFpiqQQ');//not requered
+//$geocoding->country("germany");
+$geocoding->geocode("berlin");
+echo $geocoding->get("formatted_address");
+$geocoding->next();
+echo $geocoding->get("formatted_address");
+echo "<hr/>";
+$geocoding->place ("ChIJd8BlQ2BZwokRAFUEcm_qrcA");
+$latlng = $geocoding->get("geometry.location");
+$geocoding->result_type('street_address');
+$geocoding->reverse($latlng);
+echo $geocoding->get("formatted_address");
